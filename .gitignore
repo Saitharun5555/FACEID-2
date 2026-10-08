@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Local configuration and environments
+.env
+.venv/
+venv/
+
+# Local biometric records
+data/
+static/uploads/

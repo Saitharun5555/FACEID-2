@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block title %}Biometric Scanner Terminal | FaceID{% endblock %}
+
+{% block content %}
+<div class="flex-1 flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8 relative overflow-hidden">
+    <!-- Background glow aesthetics -->
+    <div class="absolute -top-32 -left-32 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="w-full max-w-4xl mx-auto flex flex-col items-center">
+        <!-- Terminal Header -->
+        <div class="text-center mb-6">
+            <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-slate-900 border border-cyan-500/30 text-cyan-400 text-xs font-mono mb-2">
+                <i class="fa-solid fa-expand animate-pulse"></i>
+                <span>BIOMETRIC SCANNING TERMINAL</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+                Face Recognition & Identity Verification
+            </h1>
+            <p class="text-sm text-slate-400 mt-1">
+                Position your face directly within the scanner frame to verify identity and view registered facial accuracy.
+            </p>
+        </div>
+
+        <!-- Scanner Card Container -->
+        <div class="w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- Left: Camera Viewport (8 Cols) -->
+            <div class="lg:col-span-8 flex flex-col items-center">
+                <div class="relative w-full aspect-[4/3] max-w-lg bg-slate-900/90 rounded-2xl overflow-hidden border-2 border-slate-800 shadow-2xl shadow-cyan-950/40 group">
+                    <!-- Reticle Corner Accents -->
+                    <div class="reticle-corner corner-tl"></div>
+                    <div class="reticle-corner corner-tr"></div>
+                    <div class="reticle-corner corner-bl"></div>
+                    <div class="reticle-corner corner-br"></div>
+
+                    <!-- Scanning Laser Sweep Line -->
+                    <div id="scanner-laser-line" class="scanner-laser hidden"></div>
+
+                    <!-- Realtime Video Stream -->
+                    <video id="webcam-feed" autoplay playsinline muted class="w-full h-full object-cover transform -scale-x-100"></video>
+                    
+                    <!-- Hidden Canvas for frame snapshot -->
+                    <canvas id="snapshot-canvas" class="hidden"></canvas>
+
+                    <!-- Face Alignment Oval Guide -->
+                    <div id="face-guide-overlay" class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+                        <div class="w-48 h-64 border-2 border-dashed border-cyan-400/40 rounded-[50%] flex items-center justify-center transition-all duration-300">
+                            <span class="text-[11px] font-mono text-cyan-300/60 bg-slate-950/70 px-2 py-0.5 rounded-full">ALIGN FACE</span>
+                        </div>
+                    </div>
+
+                    <!-- Scanner Status Overlay Badge -->
+                    <div class="absolute top-4 left-4 z-30">
+                        <div id="camera-status-pill" class="flex items-center space-x-2 px-3 py-1 rounded-full bg-slate-950/80 backdrop-blur-md border border-slate-700 text-xs font-mono text-slate-300">
+                            <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse" id="camera-status-dot"></span>
+                            <span id="camera-status-text">INITIALIZING CAMERA...</span>
+                        </div>
+                    </div>
+
+                    <!-- Camera Controls Overlay (Top Right) -->
+                    <div class="absolute top-4 right-4 z-30 flex items-center space-x-2">
+                        <button id="btn-toggle-mirror" title="Toggle Mirror" class="w-8 h-8 rounded-lg bg-slate-950/70 hover:bg-slate-800 text-slate-300 flex items-center justify-center border border-slate-700/60 text-xs transition-colors">
+                            <i class="fa-solid fa-arrows-left-right"></i>
+                        </button>
+                        <button id="btn-toggle-sound" title="Toggle Sound" class="w-8 h-8 rounded-lg bg-slate-950/70 hover:bg-slate-800 text-slate-300 flex items-center justify-center border border-slate-700/60 text-xs transition-colors">
+                            <i id="sound-icon" class="fa-solid fa-volume-high text-cyan-400"></i>
+                        </button>
+                    </div>
+
+                    <!-- Camera Error / Fallback State -->
+                    <div id="camera-error-message" class="hidden absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center z-40">
+                        <div class="w-14 h-14 rounded-full bg-rose-950/80 border border-rose-800 flex items-center justify-center text-rose-400 text-2xl mb-3">
+                            <i class="fa-solid fa-video-slash"></i>
+                        </div>
+                        <h3 class="text-base font-bold text-white mb-1">Webcam Not Available</h3>
+                        <p class="text-xs text-slate-400 max-w-xs mb-4">
+                            No camera feed detected or permission was denied. You can test the recognition engine by uploading a face photo directly below.
+                        </p>
+                        <button onclick="document.getElementById('file-upload-input').click()" class="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold flex items-center space-x-2 shadow-lg shadow-cyan-600/30 transition-all">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            <span>Upload Photo to Scan</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Controls Bar -->
+                <div class="w-full max-w-lg mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <!-- Auto-Scan Toggle Switch -->
+                    <label class="flex items-center space-x-2.5 cursor-pointer select-none">
+                        <div class="relative">
+                            <input type="checkbox" id="toggle-auto-scan" class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600"></div>
+                        </div>
+                        <span class="text-xs font-medium text-slate-300">Continuous Auto-Scan</span>
+                    </label>
+
+                    <!-- Manual Scan & File Upload Buttons -->
+                    <div class="flex items-center space-x-2 w-full sm:w-auto">
+                        <button id="btn-scan-now" class="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-sm flex items-center justify-center space-x-2 shadow-lg shadow-cyan-500/25 active:scale-95 transition-all">
+                            <i class="fa-solid fa-expand text-base"></i>
+                            <span id="scan-btn-label">SCAN FACE</span>
+                        </button>
+
+                        <button onclick="document.getElementById('file-upload-input').click()" title="Upload Image File" class="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-sm font-semibold flex items-center space-x-1.5 transition-colors">
+                            <i class="fa-solid fa-folder-open"></i>
+                            <span class="hidden sm:inline text-xs">File</span>
+                        </button>
+                        <input type="file" id="file-upload-input" accept="image/*" class="hidden">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Real-time Recognition Result Panel (4 Cols) -->
+            <div class="lg:col-span-4 w-full">
+                <!-- Idle State Box -->
+                <div id="panel-idle" class="w-full glass-panel rounded-2xl p-6 border border-slate-800 text-center flex flex-col items-center justify-center min-h-[360px]">
+                    <div class="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-cyan-400 text-2xl mb-4 shadow-inner">
+                        <i class="fa-solid fa-user-shield"></i>
+                    </div>
+                    <h3 class="text-base font-bold text-white mb-2">Ready to Scan</h3>
+                    <p class="text-xs text-slate-400 leading-relaxed mb-4 max-w-xs">
+                        Look into the camera or click <span class="text-cyan-400 font-semibold">"SCAN FACE"</span>. Verified user details and accuracy score will appear here instantly.
+                    </p>
+                    <div class="w-full pt-4 border-t border-slate-800/80 flex flex-col gap-2 text-[11px] font-mono text-slate-500 text-left">
+                        <div class="flex items-center justify-between">
+                            <span>Deep Learning Model:</span>
+                            <span class="text-slate-300">OpenCV SFace</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span>Biometric Resolution:</span>
+                            <span class="text-slate-300">128-D Vector</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span>Privacy Mode:</span>
+                            <span class="text-emerald-400 font-semibold">Admin Protected</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Verified Result Card (Shown when recognized) -->
+                <div id="panel-verified" class="hidden w-full glass-panel rounded-2xl p-5 border-2 border-emerald-500/60 shadow-xl shadow-emerald-950/50 flex flex-col transition-all">
+                    <!-- Status Header -->
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                            <span class="text-xs font-mono font-bold uppercase tracking-wider text-emerald-400">IDENTITY VERIFIED</span>
+                        </div>
+                        <span id="verified-timestamp" class="text-[11px] font-mono text-slate-400">00:00:00</span>
+                    </div>
+
+                    <!-- Registered Facial Accuracy Gauge -->
+                    <div class="my-4 p-4 rounded-xl bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/30 flex items-center justify-between">
+                        <div>
+                            <span class="text-[10px] font-mono tracking-wider uppercase text-emerald-400 font-semibold block">REGISTERED FACIAL ACCURACY</span>
+                            <div class="flex items-baseline space-x-1 mt-0.5">
+                                <span id="accuracy-number" class="text-3xl font-extrabold font-mono text-white tracking-tight">00.0</span>
+                                <span class="text-lg font-bold font-mono text-emerald-400">%</span>
+                            </div>
+                            <span id="match-confidence-badge" class="inline-block mt-1 text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-900/60 border border-emerald-600/50 text-emerald-300 font-bold uppercase">
+                                HIGH CONFIDENCE MATCH
+                            </span>
+                        </div>
+                        <!-- Mini Radial/Donut graphic -->
+                        <div class="relative w-16 h-16 flex items-center justify-center">
+                            <svg class="w-16 h-16 transform -rotate-90" viewBox="0 0 36 36">
+                                <path class="text-slate-800" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                <path id="accuracy-donut-stroke" class="text-emerald-400 transition-all duration-1000 ease-out" stroke-dasharray="0, 100" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            </svg>
+                            <i class="fa-solid fa-check text-emerald-400 text-sm absolute"></i>
+                        </div>
+                    </div>
+
+                    <!-- Comparison Portraits (Registered vs Live Snapshot) -->
+                    <div class="grid grid-cols-2 gap-2 mb-4">
+                        <div class="flex flex-col items-center p-2 rounded-xl bg-slate-900/80 border border-slate-800">
+                            <span class="text-[10px] font-mono text-slate-400 mb-1.5 uppercase">Registered Face</span>
+                            <img id="user-registered-photo" src="" alt="Registered Photo" class="w-16 h-16 object-cover rounded-lg border border-slate-700 shadow-md">
+                        </div>
+                        <div class="flex flex-col items-center p-2 rounded-xl bg-slate-900/80 border border-slate-800">
+                            <span class="text-[10px] font-mono text-slate-400 mb-1.5 uppercase">Live Capture</span>
+                            <img id="live-snapshot-photo" src="" alt="Live Snapshot" class="w-16 h-16 object-cover rounded-lg border border-slate-700 shadow-md">
+                        </div>
+                    </div>
+
+                    <!-- User Verified Details List -->
+                    <div class="space-y-2.5 text-xs">
+                        <div class="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
+                            <span class="text-[10px] text-slate-400 font-mono uppercase block">Full Name</span>
+                            <span id="user-full-name" class="text-sm font-bold text-white">John Doe</span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
+                                <span class="text-[10px] text-slate-400 font-mono uppercase block">Badge ID</span>
+                                <span id="user-badge-id" class="font-mono font-semibold text-cyan-300">EMP-1001</span>
+                            </div>
+                            <div class="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
+                                <span class="text-[10px] text-slate-400 font-mono uppercase block">Department</span>
+                                <span id="user-department" class="font-semibold text-slate-200">Engineering</span>
+                            </div>
+                        </div>
+
+                        <div class="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                            <div>
+                                <span class="text-[10px] text-slate-400 font-mono uppercase block">Role Title</span>
+                                <span id="user-role-title" class="font-medium text-slate-300">Lead Architect</span>
+                            </div>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950 border border-emerald-700 text-emerald-400 font-semibold">
+                                AUTHORIZED
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Auto-reset countdown & dismiss -->
+                    <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
+                        <span class="text-[11px] font-mono text-slate-400">
+                            Resetting in <span id="reset-timer-count" class="text-cyan-400 font-bold">5</span>s
+                        </span>
+                        <button id="btn-dismiss-verified" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors">
+                            Next Scan
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Unrecognized / Denied State Card -->
+                <div id="panel-denied" class="hidden w-full glass-panel rounded-2xl p-5 border-2 border-rose-500/60 shadow-xl shadow-rose-950/50 flex flex-col transition-all">
+                    <div class="flex items-center space-x-2 pb-3 border-b border-slate-800 text-rose-400">
+                        <i class="fa-solid fa-circle-xmark text-lg"></i>
+                        <span class="text-xs font-mono font-bold uppercase tracking-wider">ACCESS DENIED</span>
+                    </div>
+
+                    <div class="my-4 p-4 rounded-xl bg-rose-950/30 border border-rose-800/40 text-center">
+                        <div class="w-12 h-12 rounded-full bg-rose-900/60 text-rose-300 flex items-center justify-center text-xl mx-auto mb-2">
+                            <i class="fa-solid fa-user-xmark"></i>
+                        </div>
+                        <h4 class="text-sm font-bold text-white mb-1">Face Not Recognized</h4>
+                        <p class="text-xs text-rose-300/80 mb-3">
+                            The scanned biometric embedding does not match any authorized user in the system.
+                        </p>
+
+                        <!-- Accuracy comparison -->
+                        <div class="p-2.5 rounded-lg bg-slate-900/90 border border-rose-900/50 text-left font-mono text-xs space-y-1">
+                            <div class="flex justify-between text-slate-400">
+                                <span>Calculated Similarity:</span>
+                                <span id="denied-accuracy-val" class="text-rose-400 font-bold">0.0%</span>
+                            </div>
+                            <div class="flex justify-between text-slate-400">
+                                <span>Required Threshold:</span>
+                                <span class="text-slate-300">70.0% (0.363 Cosine)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="btn-dismiss-denied" class="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all">
+                        Try Again
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/scanner.js"></script>
+{% endblock %}

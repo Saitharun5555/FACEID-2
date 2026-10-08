@@ -1,0 +1,437 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Control Center | FaceID Biometric Portal{% endblock %}
+
+{% block content %}
+<div class="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+
+    <!-- Header & Quick Navigation -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+            <div class="flex items-center space-x-2">
+                <span class="px-2.5 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-400 font-mono text-xs font-semibold">
+                    ADMINISTRATOR PORTAL
+                </span>
+                <span class="text-xs font-mono text-slate-500">Authenticated: {{ admin.username }}</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-white mt-1 tracking-tight">
+                User Management & Biometric Directory
+            </h1>
+            <p class="text-xs text-slate-400 mt-0.5">
+                Restricted access: Enroll authorized personnel, manage facial biometric profiles, and configure security thresholds.
+            </p>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <button id="btn-open-settings" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 text-xs font-semibold flex items-center space-x-2 transition-colors">
+                <i class="fa-solid fa-sliders"></i>
+                <span>Settings & Threshold</span>
+            </button>
+            <button id="btn-open-register" class="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs flex items-center space-x-2 shadow-lg shadow-cyan-500/25 transition-all">
+                <i class="fa-solid fa-user-plus"></i>
+                <span>Enroll New User</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Metrics Cards Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="glass-panel rounded-2xl p-5 border border-slate-800 flex items-center justify-between">
+            <div>
+                <span class="text-[11px] font-mono uppercase text-slate-400 font-semibold block">Total Users</span>
+                <span id="metric-total-users" class="text-2xl font-extrabold text-white font-mono mt-1 block">--</span>
+                <span class="text-[10px] text-slate-500">Registered biometric profiles</span>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-blue-950/60 border border-blue-800/60 text-blue-400 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-users"></i>
+            </div>
+        </div>
+
+        <div class="glass-panel rounded-2xl p-5 border border-slate-800 flex items-center justify-between">
+            <div>
+                <span class="text-[11px] font-mono uppercase text-slate-400 font-semibold block">Active Personnel</span>
+                <span id="metric-active-users" class="text-2xl font-extrabold text-cyan-400 font-mono mt-1 block">--</span>
+                <span class="text-[10px] text-slate-500">Authorized for access</span>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-cyan-950/60 border border-cyan-800/60 text-cyan-400 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-user-check"></i>
+            </div>
+        </div>
+
+        <div class="glass-panel rounded-2xl p-5 border border-slate-800 flex items-center justify-between">
+            <div>
+                <span class="text-[11px] font-mono uppercase text-slate-400 font-semibold block">Scans Today</span>
+                <span id="metric-scans-today" class="text-2xl font-extrabold text-white font-mono mt-1 block">--</span>
+                <span class="text-[10px] text-slate-500" id="metric-verified-ratio">-- verified</span>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-purple-950/60 border border-purple-800/60 text-purple-400 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-camera"></i>
+            </div>
+        </div>
+
+        <div class="glass-panel rounded-2xl p-5 border border-slate-800 flex items-center justify-between">
+            <div>
+                <span class="text-[11px] font-mono uppercase text-slate-400 font-semibold block">Avg. Accuracy Today</span>
+                <span id="metric-avg-accuracy" class="text-2xl font-extrabold text-emerald-400 font-mono mt-1 block">--%</span>
+                <span class="text-[10px] text-slate-500">SFace Cosine calibration</span>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-emerald-950/60 border border-emerald-800/60 text-emerald-400 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-chart-line"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search & Filter Controls -->
+    <div class="glass-panel rounded-2xl p-4 border border-slate-800 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="relative w-full sm:w-80">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 text-sm">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </span>
+            <input type="text" id="user-search-input" placeholder="Search by name, ID, or email..."
+                class="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-900 border border-slate-700/80 text-white placeholder-slate-500 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all">
+        </div>
+
+        <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
+            <select id="user-dept-filter" class="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700/80 text-white text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                <option value="">All Departments</option>
+                <option value="Engineering">Engineering</option>
+                <option value="Management">Management</option>
+                <option value="Security">Security</option>
+                <option value="Operations">Operations</option>
+                <option value="Human Resources">Human Resources</option>
+            </select>
+            <button id="btn-refresh-users" title="Refresh Table" class="w-9 h-9 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700/80 flex items-center justify-center transition-colors">
+                <i class="fa-solid fa-arrow-rotate-right text-xs"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Registered Users Table -->
+    <div class="glass-panel rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                    <tr class="border-b border-slate-800 bg-slate-900/60 font-mono uppercase text-slate-400">
+                        <th class="py-3.5 px-4">User</th>
+                        <th class="py-3.5 px-4">Badge / User ID</th>
+                        <th class="py-3.5 px-4">Department & Role</th>
+                        <th class="py-3.5 px-4">Contact</th>
+                        <th class="py-3.5 px-4">Status</th>
+                        <th class="py-3.5 px-4">Enrolled Date</th>
+                        <th class="py-3.5 px-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="users-table-body" class="divide-y divide-slate-800/60 text-slate-300">
+                    <!-- Populated dynamically via JS -->
+                    <tr>
+                        <td colspan="7" class="py-12 text-center text-slate-500">
+                            <i class="fa-solid fa-circle-notch fa-spin text-lg text-cyan-400 mb-2"></i>
+                            <p>Loading registered users...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL: ENROLL NEW USER WITH FACE           -->
+<!-- ========================================== -->
+<div id="modal-enroll-user" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-panel rounded-2xl border border-slate-700/80 w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+        <!-- Modal Header -->
+        <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
+            <div class="flex items-center space-x-2.5">
+                <div class="w-8 h-8 rounded-lg bg-cyan-950 border border-cyan-800 text-cyan-400 flex items-center justify-center text-sm">
+                    <i class="fa-solid fa-user-plus"></i>
+                </div>
+                <h3 class="text-base font-bold text-white">Enroll New User Biometrics</h3>
+            </div>
+            <button id="btn-close-enroll" class="text-slate-400 hover:text-white transition-colors text-base">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <form id="form-enroll-user" class="p-6 space-y-5">
+            <!-- Basic User Information -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[11px] font-mono uppercase tracking-wider text-slate-300 mb-1" for="new-user-id">
+                        User / Badge ID <span class="text-cyan-400">*</span>
+                    </label>
+                    <input type="text" id="new-user-id" required placeholder="e.g. EMP-1001"
+                        class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-mono uppercase tracking-wider text-slate-300 mb-1" for="new-full-name">
+                        Full Name <span class="text-cyan-400">*</span>
+                    </label>
+                    <input type="text" id="new-full-name" required placeholder="e.g. Sarah Connor"
+                        class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-mono uppercase tracking-wider text-slate-300 mb-1" for="new-department">
+                        Department
+                    </label>
+                    <input type="text" id="new-department" placeholder="e.g. Engineering"
+                        class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-mono uppercase tracking-wider text-slate-300 mb-1" for="new-role-title">
+                        Role / Designation
+                    </label>
+                    <input type="text" id="new-role-title" placeholder="e.g. Systems Engineer"
+                        class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-mono uppercase tracking-wider text-slate-300 mb-1" for="new-email">
+                        Email Address
+                    </label>
+                    <input type="email" id="new-email" placeholder="e.g. sarah@example.com"
+                        class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-mono uppercase tracking-wider text-slate-300 mb-1" for="new-phone">
+                        Phone Number
+                    </label>
+                    <input type="tel" id="new-phone" placeholder="e.g. +1 (555) 019-2831"
+                        class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                </div>
+            </div>
+
+            <!-- Biometric Capture Section -->
+            <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-800">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
+                        Biometric Face Registration <span class="text-rose-400">*</span>
+                    </span>
+                    <!-- Capture Method Tabs -->
+                    <div class="flex space-x-1 p-0.5 rounded-lg bg-slate-950 border border-slate-800">
+                        <button type="button" id="tab-btn-webcam" class="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-cyan-600 text-white transition-all">
+                            <i class="fa-solid fa-camera mr-1"></i>Webcam Snap
+                        </button>
+                        <button type="button" id="tab-btn-upload" class="px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-400 hover:text-white transition-all">
+                            <i class="fa-solid fa-cloud-arrow-up mr-1"></i>Upload Photo
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tab 1: Live Webcam Capture View -->
+                <div id="enroll-webcam-pane" class="flex flex-col items-center">
+                    <div class="relative w-64 h-64 bg-slate-950 rounded-xl overflow-hidden border border-slate-700 mb-3">
+                        <video id="enroll-video" autoplay playsinline muted class="w-full h-full object-cover transform -scale-x-100"></video>
+                        <canvas id="enroll-canvas" class="hidden"></canvas>
+                        <!-- Oval guide -->
+                        <div class="absolute inset-0 pointer-events-none flex items-center justify-center">
+                            <div class="w-40 h-52 border-2 border-dashed border-cyan-400/50 rounded-[50%]"></div>
+                        </div>
+                    </div>
+                    <button type="button" id="btn-snap-enroll" class="px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold flex items-center space-x-1.5 transition-colors">
+                        <i class="fa-solid fa-camera-retro"></i>
+                        <span>Snap Portrait</span>
+                    </button>
+                </div>
+
+                <!-- Tab 2: File Upload View -->
+                <div id="enroll-upload-pane" class="hidden flex flex-col items-center">
+                    <div class="w-full p-6 border-2 border-dashed border-slate-700 hover:border-cyan-500 rounded-xl text-center cursor-pointer transition-colors"
+                         onclick="document.getElementById('enroll-file-input').click()">
+                        <i class="fa-solid fa-images text-2xl text-slate-500 mb-2"></i>
+                        <p class="text-xs text-slate-300 font-semibold">Click or drag a clear front-facing face photo here</p>
+                        <p class="text-[10px] text-slate-500 mt-1">Supports JPG, PNG, WEBP (Single face in frame)</p>
+                    </div>
+                    <input type="file" id="enroll-file-input" accept="image/*" class="hidden">
+                </div>
+
+                <!-- Preview of Captured / Selected Image -->
+                <div id="enroll-preview-box" class="hidden mt-3 p-3 rounded-lg bg-slate-950 border border-emerald-500/40 flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <img id="enroll-preview-img" src="" alt="Face Preview" class="w-14 h-14 rounded-lg object-cover border border-slate-700">
+                        <div>
+                            <span class="text-xs font-bold text-emerald-400 flex items-center">
+                                <i class="fa-solid fa-check-circle mr-1"></i>Face Captured & Ready
+                            </span>
+                            <span class="text-[10px] text-slate-400 block mt-0.5">Embedding will be extracted automatically on submission.</span>
+                        </div>
+                    </div>
+                    <button type="button" id="btn-retake-enroll" class="text-xs text-rose-400 hover:text-rose-300 font-semibold px-2 py-1">
+                        Retake
+                    </button>
+                </div>
+            </div>
+
+            <!-- Notes -->
+            <div>
+                <label class="block text-[11px] font-mono uppercase tracking-wider text-slate-300 mb-1" for="new-notes">
+                    Security Notes / Badging Info
+                </label>
+                <textarea id="new-notes" rows="2" placeholder="Optional notes regarding badge clearance or notes..."
+                    class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500"></textarea>
+            </div>
+
+            <!-- Submit Button & Feedback -->
+            <div id="enroll-error-alert" class="hidden p-3 rounded-xl bg-rose-950/70 border border-rose-800 text-rose-300 text-xs flex items-center space-x-2">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span id="enroll-error-msg">Error</span>
+            </div>
+
+            <div class="flex items-center justify-end space-x-3 pt-2">
+                <button type="button" id="btn-cancel-enroll" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors">
+                    Cancel
+                </button>
+                <button type="submit" id="btn-submit-enroll" class="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-bold shadow-lg shadow-cyan-500/25 transition-all">
+                    Complete Biometric Registration
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL: EDIT USER DETAILS                   -->
+<!-- ========================================== -->
+<div id="modal-edit-user" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-panel rounded-2xl border border-slate-700/80 w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+        <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
+            <h3 class="text-base font-bold text-white">Edit User Record</h3>
+            <button id="btn-close-edit" class="text-slate-400 hover:text-white transition-colors">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <form id="form-edit-user" class="p-6 space-y-4">
+            <input type="hidden" id="edit-user-id">
+
+            <div>
+                <label class="block text-[11px] font-mono uppercase tracking-wider text-slate-300 mb-1" for="edit-full-name">
+                    Full Name
+                </label>
+                <input type="text" id="edit-full-name" required class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[11px] font-mono uppercase tracking-wider text-slate-300 mb-1" for="edit-department">
+                        Department
+                    </label>
+                    <input type="text" id="edit-department" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-mono uppercase tracking-wider text-slate-300 mb-1" for="edit-role-title">
+                        Role Title
+                    </label>
+                    <input type="text" id="edit-role-title" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[11px] font-mono uppercase tracking-wider text-slate-300 mb-1" for="edit-email">
+                        Email
+                    </label>
+                    <input type="email" id="edit-email" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-mono uppercase tracking-wider text-slate-300 mb-1" for="edit-phone">
+                        Phone
+                    </label>
+                    <input type="tel" id="edit-phone" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs">
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2 pt-2">
+                <input type="checkbox" id="edit-is-active" class="rounded bg-slate-900 border-slate-700 text-cyan-600 focus:ring-cyan-500">
+                <label for="edit-is-active" class="text-xs font-semibold text-slate-200">Active (Authorized for Face Scanner)</label>
+            </div>
+
+            <div>
+                <label class="block text-[11px] font-mono uppercase tracking-wider text-slate-300 mb-1" for="edit-notes">
+                    Notes
+                </label>
+                <textarea id="edit-notes" rows="2" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"></textarea>
+            </div>
+
+            <div class="flex items-center justify-end space-x-3 pt-3">
+                <button type="button" id="btn-cancel-edit" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">
+                    Cancel
+                </button>
+                <button type="submit" class="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shadow-lg shadow-cyan-600/30">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL: SYSTEM SETTINGS & THRESHOLD         -->
+<!-- ========================================== -->
+<div id="modal-settings" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-panel rounded-2xl border border-slate-700/80 w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+        <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-sliders text-cyan-400"></i>
+                <h3 class="text-base font-bold text-white">System Settings & Biometric Calibration</h3>
+            </div>
+            <button id="btn-close-settings" class="text-slate-400 hover:text-white transition-colors">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div class="p-6 space-y-6">
+            <!-- Cosine Threshold Tuning -->
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <label class="text-xs font-mono uppercase font-bold text-slate-200">
+                        Cosine Similarity Threshold
+                    </label>
+                    <span id="slider-threshold-val" class="font-mono text-cyan-400 font-bold text-sm">0.363</span>
+                </div>
+                <input type="range" id="threshold-slider" min="0.200" max="0.600" step="0.005" value="{{ threshold }}"
+                    class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                <div class="flex justify-between text-[10px] font-mono text-slate-500 mt-1">
+                    <span>0.200 (Lenient)</span>
+                    <span class="text-cyan-400">0.363 (SFace Default / High Security)</span>
+                    <span>0.600 (Ultra Strict)</span>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-2">
+                    Face matches with a cosine score above this threshold are recognized as verified. Standard default (0.363) guarantees False Acceptance Rate (FAR) &lt; 0.01%.
+                </p>
+                <button type="button" id="btn-save-threshold" class="mt-3 px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold transition-colors">
+                    Update Threshold
+                </button>
+            </div>
+
+            <!-- Change Admin Password -->
+            <div class="pt-5 border-t border-slate-800">
+                <h4 class="text-xs font-mono uppercase font-bold text-slate-200 mb-3">Change Administrator Password</h4>
+                <form id="form-change-pwd" class="space-y-3">
+                    <div>
+                        <input type="password" id="old-password" required placeholder="Current Password"
+                            class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs">
+                    </div>
+                    <div>
+                        <input type="password" id="new-password" required placeholder="New Password (min 6 characters)"
+                            class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs">
+                    </div>
+                    <div id="pwd-change-msg" class="hidden text-xs"></div>
+                    <button type="submit" class="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors">
+                        Change Password
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/admin.js"></script>
+{% endblock %}

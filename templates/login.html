@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Authentication | FaceID Shield{% endblock %}
+
+{% block content %}
+<div class="flex-1 flex flex-col justify-center items-center p-4 relative overflow-hidden">
+    <div class="absolute -top-32 -left-32 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-32 -right-32 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="w-full max-w-md">
+        <!-- Auth Card -->
+        <div class="glass-panel rounded-2xl p-8 border border-slate-800 shadow-2xl shadow-cyan-950/30">
+            <!-- Header -->
+            <div class="text-center mb-6">
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-cyan-500/30">
+                    <i class="fa-solid fa-lock text-white text-xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-white tracking-tight">Admin Portal Login</h2>
+                <p class="text-xs text-slate-400 mt-1">
+                    Strict access control: User records and biometric database are restricted to authorized administrators only.
+                </p>
+            </div>
+
+            <!-- Error Banner -->
+            <div id="login-error-alert" class="hidden mb-4 p-3 rounded-xl bg-rose-950/60 border border-rose-800 text-rose-300 text-xs flex items-center space-x-2">
+                <i class="fa-solid fa-triangle-exclamation text-rose-400"></i>
+                <span id="login-error-msg">Invalid credentials.</span>
+            </div>
+
+            <!-- Login Form -->
+            <form id="admin-login-form" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-1.5" for="username">
+                        Admin Username
+                    </label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 text-sm">
+                            <i class="fa-solid fa-user"></i>
+                        </span>
+                        <input type="text" id="username" name="username" required autocomplete="username"
+                            placeholder="e.g. admin"
+                            class="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-1.5" for="password">
+                        Password
+                    </label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 text-sm">
+                            <i class="fa-solid fa-key"></i>
+                        </span>
+                        <input type="password" id="password" name="password" required autocomplete="current-password"
+                            placeholder="••••••••"
+                            class="w-full pl-9 pr-10 py-2.5 rounded-xl bg-slate-900 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all">
+                        <button type="button" id="btn-toggle-pwd" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500 hover:text-slate-300 transition-colors">
+                            <i class="fa-solid fa-eye" id="eye-icon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" id="btn-submit-login" class="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-sm flex items-center justify-center space-x-2 shadow-lg shadow-cyan-500/25 active:scale-98 transition-all">
+                    <span id="btn-login-text">Sign In as Admin</span>
+                    <i class="fa-solid fa-arrow-right text-xs"></i>
+                </button>
+            </form>
+
+            <!-- Default credentials hint -->
+            <div class="mt-6 pt-4 border-t border-slate-800 text-center">
+                <div class="inline-flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-400">
+                    <span class="text-cyan-400 font-bold">Default:</span>
+                    <span>admin / admin123</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const form = document.getElementById('admin-login-form');
+    const errorAlert = document.getElementById('login-error-alert');
+    const errorMsg = document.getElementById('login-error-msg');
+    const btnSubmit = document.getElementById('btn-submit-login');
+    const btnLoginText = document.getElementById('btn-login-text');
+    const pwdInput = document.getElementById('password');
+    const btnTogglePwd = document.getElementById('btn-toggle-pwd');
+    const eyeIcon = document.getElementById('eye-icon');
+
+    btnTogglePwd.addEventListener('click', () => {
+        if (pwdInput.type === 'password') {
+            pwdInput.type = 'text';
+            eyeIcon.className = 'fa-solid fa-eye-slash';
+        } else {
+            pwdInput.type = 'password';
+            eyeIcon.className = 'fa-solid fa-eye';
+        }
+    });
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errorAlert.classList.add('hidden');
+        btnSubmit.disabled = true;
+        btnLoginText.textContent = 'Verifying...';
+
+        const username = document.getElementById('username').value.trim();
+        const password = pwdInput.value;
+
+        try {
+            const resp = await fetch('/api/admin/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            if (!resp.ok) {
+                const data = await resp.json().catch(() => ({}));
+                throw new Error(data.detail || 'Invalid username or password');
+            }
+
+            const data = await resp.json();
+            // Store token in localStorage and explicit browser cookie
+            localStorage.setItem('faceid_admin_token', data.access_token);
+            document.cookie = `faceid_token=${data.access_token}; path=/; max-age=86400; SameSite=Lax`;
+            // Redirect to Admin Dashboard
+            window.location.href = '/admin';
+        } catch (err) {
+            errorMsg.textContent = err.message;
+            errorAlert.classList.remove('hidden');
+            btnSubmit.disabled = false;
+            btnLoginText.textContent = 'Sign In as Admin';
+        }
+    });
+</script>
+{% endblock %}

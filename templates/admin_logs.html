@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}Audit & Scan Logs | FaceID Portal{% endblock %}
+
+{% block content %}
+<div class="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+            <div class="flex items-center space-x-2">
+                <span class="px-2.5 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-400 font-mono text-xs font-semibold">
+                    BIOMETRIC AUDIT TRAIL
+                </span>
+                <span class="text-xs font-mono text-slate-500">Admin Protected Records</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-white mt-1 tracking-tight">
+                Scan Activity & Verification Logs
+            </h1>
+            <p class="text-xs text-slate-400 mt-0.5">
+                Complete forensic history of all face scans, calculated facial accuracies, timestamps, and camera snapshots.
+            </p>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <a href="/api/admin/logs/export" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 text-xs font-semibold flex items-center space-x-2 transition-colors">
+                <i class="fa-solid fa-file-csv text-emerald-400"></i>
+                <span>Export CSV</span>
+            </a>
+            <button id="btn-clear-logs" class="px-3.5 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-white border border-rose-800/60 text-xs font-semibold flex items-center space-x-2 transition-colors">
+                <i class="fa-solid fa-trash-can"></i>
+                <span>Clear Logs</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="glass-panel rounded-2xl p-4 border border-slate-800 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+            <div class="relative w-full sm:w-64">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 text-xs">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </span>
+                <input type="text" id="log-user-filter" placeholder="Filter by User ID or Name..."
+                    class="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500">
+            </div>
+
+            <select id="log-status-filter" class="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                <option value="">All Verification Statuses</option>
+                <option value="VERIFIED">VERIFIED</option>
+                <option value="UNRECOGNIZED">UNRECOGNIZED</option>
+                <option value="NO_FACE">NO FACE DETECTED</option>
+            </select>
+        </div>
+
+        <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
+            <span id="log-count-summary" class="text-xs font-mono text-slate-400">Total: 0 scans</span>
+            <button id="btn-refresh-logs" title="Refresh Logs" class="w-9 h-9 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700/80 flex items-center justify-center transition-colors">
+                <i class="fa-solid fa-arrow-rotate-right text-xs"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Logs Table -->
+    <div class="glass-panel rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                    <tr class="border-b border-slate-800 bg-slate-900/60 font-mono uppercase text-slate-400">
+                        <th class="py-3.5 px-4">Snapshot</th>
+                        <th class="py-3.5 px-4">Timestamp (UTC)</th>
+                        <th class="py-3.5 px-4">Identity / User</th>
+                        <th class="py-3.5 px-4">Status</th>
+                        <th class="py-3.5 px-4">Facial Accuracy (%)</th>
+                        <th class="py-3.5 px-4">Similarity Score</th>
+                    </tr>
+                </thead>
+                <tbody id="logs-table-body" class="divide-y divide-slate-800/60 text-slate-300">
+                    <tr>
+                        <td colspan="6" class="py-12 text-center text-slate-500">
+                            <i class="fa-solid fa-circle-notch fa-spin text-lg text-cyan-400 mb-2"></i>
+                            <p>Loading audit logs...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- Image Preview Modal -->
+<div id="modal-image-preview" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4" onclick="this.classList.add('hidden')">
+    <div class="relative max-w-lg w-full flex flex-col items-center">
+        <img id="enlarged-preview-img" src="" alt="Enlarged Snapshot" class="rounded-2xl border border-slate-700 shadow-2xl max-h-[80vh] object-contain">
+        <span class="text-xs text-slate-400 mt-2 font-mono">Click anywhere to close</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const logsTbody = document.getElementById('logs-table-body');
+    const logUserFilter = document.getElementById('log-user-filter');
+    const logStatusFilter = document.getElementById('log-status-filter');
+    const btnRefresh = document.getElementById('btn-refresh-logs');
+    const btnClearLogs = document.getElementById('btn-clear-logs');
+    const logCountSummary = document.getElementById('log-count-summary');
+    const modalImgPreview = document.getElementById('modal-image-preview');
+    const enlargedImg = document.getElementById('enlarged-preview-img');
+
+    function getAuthHeaders(extra = {}) {
+        const token = localStorage.getItem("faceid_admin_token");
+        const headers = { ...extra };
+        if (token) {
+            headers["Authorization"] = `Bearer ${token}`;
+        }
+        return headers;
+    }
+
+    async function loadLogs() {
+        logsTbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="py-12 text-center text-slate-500">
+                    <i class="fa-solid fa-circle-notch fa-spin text-lg text-cyan-400 mb-2"></i>
+                    <p>Loading logs...</p>
+                </td>
+            </tr>
+        `;
+
+        const userVal = logUserFilter.value.trim();
+        const statusVal = logStatusFilter.value;
+        const params = new URLSearchParams();
+        if (userVal) params.append('user_id_filter', userVal);
+        if (statusVal) params.append('status_filter', statusVal);
+        params.append('limit', '100');
+
+        try {
+            const resp = await fetch(`/api/admin/logs?${params.toString()}`, {
+                headers: getAuthHeaders()
+            });
+            if (!resp.ok) throw new Error("Failed to load logs");
+            const data = await resp.json();
+
+            logCountSummary.textContent = `Total: ${data.total} records`;
+
+            if (data.logs.length === 0) {
+                logsTbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="py-12 text-center text-slate-500">
+                            <i class="fa-regular fa-folder-open text-2xl text-slate-600 mb-2"></i>
+                            <p>No scan logs found matching criteria.</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            logsTbody.innerHTML = data.logs.map(log => {
+                let statusBadge = '';
+                if (log.status === 'VERIFIED') {
+                    statusBadge = '<span class="px-2 py-0.5 rounded-full font-mono text-[10px] font-bold bg-emerald-950 border border-emerald-700 text-emerald-400">VERIFIED</span>';
+                } else if (log.status === 'UNRECOGNIZED') {
+                    statusBadge = '<span class="px-2 py-0.5 rounded-full font-mono text-[10px] font-bold bg-rose-950 border border-rose-800 text-rose-400">UNRECOGNIZED</span>';
+                } else {
+                    statusBadge = '<span class="px-2 py-0.5 rounded-full font-mono text-[10px] font-bold bg-amber-950 border border-amber-800 text-amber-400">NO FACE</span>';
+                }
+
+                // Accuracy bar styling
+                const acc = log.accuracy_percent || 0;
+                let accColor = 'text-rose-400';
+                if (acc >= 85) accColor = 'text-emerald-400';
+                else if (acc >= 70) accColor = 'text-cyan-400';
+
+                const snap = log.snapshot_path 
+                    ? `<img src="${log.snapshot_path}" onclick="enlargeImage('${log.snapshot_path}')" class="w-10 h-10 object-cover rounded-lg border border-slate-700 cursor-pointer hover:ring-2 hover:ring-cyan-500 transition-all">`
+                    : `<div class="w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-600 text-xs"><i class="fa-solid fa-camera"></i></div>`;
+
+                return `
+                    <tr class="hover:bg-slate-900/40 transition-colors">
+                        <td class="py-3 px-4">${snap}</td>
+                        <td class="py-3 px-4 font-mono text-slate-400">${log.timestamp || 'N/A'}</td>
+                        <td class="py-3 px-4">
+                            <span class="font-bold text-white block">${log.user_name || 'Unidentified Person'}</span>
+                            <span class="font-mono text-slate-500 text-[10px]">${log.user_id ? 'ID: ' + log.user_id : 'No Match'}</span>
+                        </td>
+                        <td class="py-3 px-4">${statusBadge}</td>
+                        <td class="py-3 px-4">
+                            <span class="font-mono font-bold ${accColor} text-sm">${acc.toFixed(1)}%</span>
+                        </td>
+                        <td class="py-3 px-4 font-mono text-slate-400">${(log.similarity_score || 0).toFixed(4)}</td>
+                    </tr>
+                `;
+            }).join('');
+
+        } catch (err) {
+            logsTbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="py-8 text-center text-rose-400">
+                        Error loading logs. Please ensure you are logged in.
+                    </td>
+                </tr>
+            `;
+        }
+    }
+
+    window.enlargeImage = function(src) {
+        enlargedImg.src = src;
+        modalImgPreview.classList.remove('hidden');
+    };
+
+    btnRefresh.addEventListener('click', loadLogs);
+    logUserFilter.addEventListener('input', debounce(loadLogs, 300));
+    logStatusFilter.addEventListener('change', loadLogs);
+
+    btnClearLogs.addEventListener('click', async () => {
+        if (!confirm("Are you sure you want to permanently delete all scan records?")) return;
+        try {
+            const resp = await fetch('/api/admin/logs', {
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            });
+            if (resp.ok) {
+                loadLogs();
+            } else {
+                alert("Failed to clear logs.");
+            }
+        } catch (e) {
+            alert("Error: " + e.message);
+        }
+    });
+
+    function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    }
+
+    loadLogs();
+</script>
+{% endblock %}
